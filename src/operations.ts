@@ -9,9 +9,15 @@ import {
   type AdminTicketQuery,
   type ContentBlock,
   type RelatedPerson,
+  type SubmittedBlock,
   type TicketDetail,
   type UpdateTicketBody,
 } from "./client.js";
+import {
+  MAX_ATTACHMENT_BYTES,
+  MAX_ATTACHMENTS,
+  mediaKind,
+} from "./media.js";
 
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -162,8 +168,78 @@ export function presentAdminPage(page: AdminTicketPage) {
   };
 }
 
+export type TicketAttachment = {
+  fileName: string;
+  mimeType: string;
+  base64: string;
+};
+
 export function textBlock(content: string) {
   return { id: randomUUID(), type: "text" as const, content };
+}
+
+export async function buildContentBlocks(
+  client: TicketClient,
+  text: string,
+  attachments: TicketAttachment[] | undefined,
+  emptyMessage: string,
+): Promise<SubmittedBlock[]> {
+  const content = assertText(text, emptyMessage);
+  const files = attachments ?? [];
+  if (files.length > MAX_ATTACHMENTS) {
+    throw new TicketApiError(
+      `No máximo ${MAX_ATTACHMENTS} anexos`,
+      400,
+      "TOO_MANY_ATTACHMENTS",
+    );
+  }
+
+  const media: SubmittedBlock[] = [];
+  for (const file of files) {
+    const data = Buffer.from(file.base64, "base64");
+    if (data.length === 0) {
+      throw new TicketApiError("Arquivo vazio", 400, "EMPTY_FILE");
+    }
+    if (data.length > MAX_ATTACHMENT_BYTES) {
+      throw new TicketApiError(
+        "Arquivo excede 5 MB",
+        400,
+        "FILE_TOO_LARGE",
+      );
+    }
+
+    const kind = mediaKind(file.mimeType, file.fileName);
+    const id = randomUUID();
+    const uploaded = await client.uploadMedia({
+      blockId: id,
+      mediaType: kind,
+      fileName: file.fileName,
+      mimeType: file.mimeType,
+      data,
+    });
+
+    if (kind === "attachment") {
+      media.push({
+        id,
+        type: "attachment",
+        mediaKey: uploaded.key,
+        mediaMime: file.mimeType,
+        mediaSizeBytes: data.length,
+        fileName: file.fileName,
+      });
+      continue;
+    }
+
+    media.push({
+      id,
+      type: kind,
+      mediaKey: uploaded.key,
+      mediaMime: file.mimeType,
+      mediaSizeBytes: data.length,
+    });
+  }
+
+  return [textBlock(content), ...media];
 }
 
 export async function getTicket(client: TicketClient, ticket: string) {
@@ -174,9 +250,19 @@ export async function getTicket(client: TicketClient, ticket: string) {
 
 export async function createTicket(
   client: TicketClient,
-  input: { type: string; text: string; relatedPeople?: RelatedPerson[] },
+  input: {
+    type: string;
+    text: string;
+    relatedPeople?: RelatedPerson[];
+    attachments?: TicketAttachment[];
+  },
 ) {
-  const content = assertText(input.text, "Descrição vazia");
+  const blocks = await buildContentBlocks(
+    client,
+    input.text,
+    input.attachments,
+    "Descrição vazia",
+  );
   const relatedPeople = input.relatedPeople ?? [];
   if (relatedPeople.length > 20) {
     throw new TicketApiError(
@@ -188,7 +274,7 @@ export async function createTicket(
 
   const created = await client.createTicket({
     type: input.type,
-    blocks: [textBlock(content)],
+    blocks,
     ...(relatedPeople.length > 0 ? { relatedPeople } : {}),
   });
 
@@ -204,11 +290,16 @@ export async function createTicket(
 
 export async function commentOnTicket(
   client: TicketClient,
-  input: { ticket: string; text: string },
+  input: { ticket: string; text: string; attachments?: TicketAttachment[] },
 ) {
-  const content = assertText(input.text, "Resposta vazia");
   const id = await resolveTicketId(client, input.ticket);
-  return client.comment(id, { blocks: [textBlock(content)] });
+  const blocks = await buildContentBlocks(
+    client,
+    input.text,
+    input.attachments,
+    "Resposta vazia",
+  );
+  return client.comment(id, { blocks });
 }
 
 export async function listAssignedToMe(client: TicketClient) {

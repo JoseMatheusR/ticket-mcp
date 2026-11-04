@@ -98,6 +98,42 @@ export class TicketClient {
     return this.request<AgentsResult>("GET", "/api/admin/agents");
   }
 
+  async uploadMedia(input: {
+    blockId: string;
+    mediaType: MediaKind;
+    fileName: string;
+    mimeType: string;
+    data: Buffer;
+  }): Promise<{ key: string }> {
+    const presign = await this.request<{ uploadUrl: string; key: string }>(
+      "POST",
+      "/api/media/upload-url",
+      {
+        blockId: input.blockId,
+        mediaType: input.mediaType,
+        contentType: input.mimeType,
+        contentLength: input.data.length,
+        fileName: input.fileName,
+      },
+    );
+
+    const response = await this.fetchImpl(presign.uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": input.mimeType },
+      body: new Uint8Array(input.data),
+    });
+
+    if (!response.ok) {
+      throw new TicketApiError(
+        "Falha ao enviar arquivo para o storage",
+        response.status,
+        "UPLOAD_FAILED",
+      );
+    }
+
+    return { key: presign.key };
+  }
+
   private async request<T>(
     method: string,
     path: string,
@@ -231,9 +267,36 @@ export type TicketDetail = {
 
 export type RelatedPerson = { id: string; name: string };
 
+export type MediaKind = "image" | "video" | "audio" | "attachment";
+
+export type SubmittedBlock =
+  | { id: string; type: "text"; content: string }
+  | {
+      id: string;
+      type: "image" | "video";
+      mediaKey: string;
+      mediaMime: string;
+      mediaSizeBytes: number;
+    }
+  | {
+      id: string;
+      type: "audio";
+      mediaKey: string;
+      mediaMime: string;
+      mediaSizeBytes: number;
+    }
+  | {
+      id: string;
+      type: "attachment";
+      mediaKey: string;
+      mediaMime: string;
+      mediaSizeBytes: number;
+      fileName: string;
+    };
+
 export type CreateTicketBody = {
   type: string;
-  blocks: { id: string; type: "text"; content: string }[];
+  blocks: SubmittedBlock[];
   relatedPeople?: RelatedPerson[];
 };
 
@@ -247,7 +310,7 @@ export type CreatedTicket = {
 };
 
 export type CommentBody = {
-  blocks: { id: string; type: "text"; content: string }[];
+  blocks: SubmittedBlock[];
 };
 
 export type CreatedComment = {

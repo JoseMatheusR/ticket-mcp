@@ -32,6 +32,14 @@ const sorts = [
   "updated_asc",
 ] as const;
 
+const attachmentSchema = z
+  .object({
+    fileName: z.string().min(1),
+    mimeType: z.string().min(1),
+    base64: z.string().min(1).describe("Conteúdo do arquivo em base64"),
+  })
+  .describe("Até 5 arquivos, 5 MB cada. Imagem, vídeo, áudio ou documento.");
+
 const relatedPerson = z.object({
   id: z
     .string()
@@ -98,16 +106,19 @@ export function registerTools(server: McpServer, client: TicketClient): void {
     {
       title: "Abrir chamado",
       description:
-        "Abre um chamado com um bloco de texto de até 2000 caracteres. Não envia prioridade nem mídia. relatedPeople usa o id do ERP retornado por search_people, no máximo 20.",
+        "Abre um chamado com um bloco de texto de até 2000 caracteres. attachments é opcional: até 5 arquivos em base64, 5 MB cada (imagem, vídeo, áudio ou documento). Não envia prioridade. relatedPeople usa o id do ERP retornado por search_people, no máximo 20.",
       inputSchema: {
         type: z.enum(ticketTypes),
         text: z.string().describe("Descrição do chamado"),
         relatedPeople: z.array(relatedPerson).max(20).optional(),
+        attachments: z.array(attachmentSchema).max(5).optional(),
       },
     },
-    async ({ type, text, relatedPeople }) => {
+    async ({ type, text, relatedPeople, attachments }) => {
       try {
-        return ok(await createTicket(client, { type, text, relatedPeople }));
+        return ok(
+          await createTicket(client, { type, text, relatedPeople, attachments }),
+        );
       } catch (error) {
         return fail(error);
       }
@@ -139,15 +150,16 @@ export function registerTools(server: McpServer, client: TicketClient): void {
     {
       title: "Comentar chamado",
       description:
-        "Comenta em um chamado acessível. ticket é uuid ou protocolo. Texto até 2000 caracteres, sem mídia.",
+        "Comenta em um chamado acessível. ticket é uuid ou protocolo. Texto até 2000 caracteres. attachments é opcional: até 5 arquivos em base64, 5 MB cada.",
       inputSchema: {
         ticket: z.string().min(1),
         text: z.string(),
+        attachments: z.array(attachmentSchema).max(5).optional(),
       },
     },
-    async ({ ticket, text }) => {
+    async ({ ticket, text, attachments }) => {
       try {
-        return ok(await commentOnTicket(client, { ticket, text }));
+        return ok(await commentOnTicket(client, { ticket, text, attachments }));
       } catch (error) {
         return fail(error);
       }
@@ -248,7 +260,7 @@ export function createMcpServer(client: TicketClient): McpServer {
     {
       capabilities: { tools: {} },
       instructions:
-        "Opera o Help Desk em nome de quem enviou o Bearer tk_. Protocolo #CH-0001 ou CH-0001 vira o uuid nas rotas. Não crie issue no GitHub e não envie mídia. Texto de chamado ou comentário tem no máximo 2000 caracteres.",
+        "Opera o Help Desk em nome de quem enviou o Bearer tk_. Protocolo #CH-0001 ou CH-0001 vira o uuid nas rotas. Não crie issue no GitHub. Texto de chamado ou comentário tem no máximo 2000 caracteres. Anexos vão em base64, no máximo 5 arquivos de 5 MB.",
     },
   );
   registerTools(server, client);

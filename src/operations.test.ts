@@ -315,6 +315,79 @@ describe("chamados", () => {
     assert.equal(calls.length, 1);
   });
 
+  it("sobe a imagem pela URL assinada e manda mediaKey no chamado", async () => {
+    const png = Buffer.from("png-bytes").toString("base64");
+    const { api } = client(async (url, init) => {
+      if (url.endsWith("/api/media/upload-url")) {
+        const body = JSON.parse(String(init?.body)) as {
+          mediaType: string;
+          contentType: string;
+          contentLength: number;
+        };
+        assert.equal(body.mediaType, "image");
+        assert.equal(body.contentType, "image/png");
+        assert.equal(body.contentLength, Buffer.from("png-bytes").length);
+        return json({
+          data: {
+            uploadUrl: "https://spaces.test/put",
+            key: "staging/user/block.png",
+          },
+        });
+      }
+      if (url === "https://spaces.test/put") {
+        assert.equal(init?.method, "PUT");
+        const headers = init?.headers as Record<string, string>;
+        assert.equal(headers["Content-Type"], "image/png");
+        return new Response(null, { status: 200 });
+      }
+      const body = JSON.parse(String(init?.body)) as {
+        blocks: { type: string; mediaKey?: string; url?: string }[];
+      };
+      assert.equal(body.blocks[0]?.type, "text");
+      assert.equal(body.blocks[1]?.type, "image");
+      assert.equal(body.blocks[1]?.mediaKey, "staging/user/block.png");
+      assert.equal(body.blocks[1]?.url, undefined);
+      return json({
+        data: {
+          id: TICKET_ID,
+          protocol: "#CH-0011",
+          type: "erro",
+          status: "backlog",
+          subject: "Print",
+          createdAt: "01/01/2026",
+        },
+      });
+    });
+
+    const created = await createTicket(api, {
+      type: "erro",
+      text: "Print",
+      attachments: [
+        { fileName: "tela.png", mimeType: "image/png", base64: png },
+      ],
+    });
+    assert.equal(created.protocol, "#CH-0011");
+  });
+
+  it("recusa arquivo acima de 5 MB antes de chamar a API", async () => {
+    const { api, calls } = client(() => {
+      throw new Error("não deveria chamar a API");
+    });
+    const huge = Buffer.alloc(5 * 1024 * 1024 + 1).toString("base64");
+    await assert.rejects(
+      () =>
+        createTicket(api, {
+          type: "erro",
+          text: "Grande",
+          attachments: [
+            { fileName: "big.png", mimeType: "image/png", base64: huge },
+          ],
+        }),
+      /5 MB/,
+    );
+    assert.equal(calls.length, 0);
+  });
+
   it("pagina atribuídos até cobrir o total", async () => {
     const pages: number[] = [];
     const { api } = client((url) => {
