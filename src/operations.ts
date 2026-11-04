@@ -108,10 +108,18 @@ export function listMyRequests(data: {
 
 export function textFromBlocks(blocks: ContentBlock[] | undefined): string {
   if (!blocks?.length) return "";
+  let mediaIndex = 0;
   return blocks
-    .map((block) =>
-      block.type === "text" && "content" in block ? block.content : "há mídia",
-    )
+    .map((block) => {
+      if (block.type === "text" && "content" in block) {
+        return block.content;
+      }
+      if ("url" in block && block.url) {
+        mediaIndex += 1;
+        return `[mídia ${mediaIndex}]`;
+      }
+      return "há mídia";
+    })
     .join("\n");
 }
 

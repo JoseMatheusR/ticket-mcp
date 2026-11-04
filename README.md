@@ -44,7 +44,7 @@ npm run dev
 
 O argumento `ticket` aceita o uuid ou o protocolo (`#CH-0001` ou `CH-0001`). Se não for uuid, o servidor procura em `list_my_requests` e, para agente, nas páginas do painel.
 
-Texto de descrição ou comentário tem no máximo 2000 caracteres. `create_ticket` e `comment_on_ticket` aceitam até 5 anexos em base64, de 5 MB cada. O servidor pede a URL assinada em `POST /api/media/upload-url` e envia o arquivo para o storage. Na leitura, o texto diz "há mídia" e `get_ticket` devolve a URL temporária em `media`. Essa URL do Spaces vale 1 hora. Não há ferramenta de issue no GitHub nem de gerar ou revogar token.
+Texto de descrição ou comentário tem no máximo 2000 caracteres. `create_ticket` e `comment_on_ticket` aceitam até 5 anexos em base64, de 5 MB cada. O servidor pede a URL assinada em `POST /api/media/upload-url` e envia o arquivo para o storage. Na leitura, o texto usa `[mídia 1]`, `[mídia 2]` na ordem dos blocos e `get_ticket` devolve a URL temporária em `media` com o mesmo índice. Essa URL do Spaces vale 1 hora. Não há ferramenta de issue no GitHub nem de gerar ou revogar token.
 
 Papel vem do token. Quando a API responde 403 ou 404, a ferramenta devolve `error.message`.
 

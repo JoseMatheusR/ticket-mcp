@@ -11,6 +11,7 @@ import {
   presentTicket,
   protocolKey,
   resolveTicketId,
+  textFromBlocks,
   updateTicket,
 } from "./operations.js";
 
@@ -189,6 +190,16 @@ describe("cliente HTTP", () => {
 });
 
 describe("chamados", () => {
+  it("numera marcadores de mídia na ordem dos blocos", () => {
+    const text = textFromBlocks([
+      { type: "text", content: "Antes" },
+      { type: "image", url: "https://cdn.example/1.png", mime: "image/png" },
+      { type: "text", content: "Meio" },
+      { type: "image", url: "https://cdn.example/2.png", mime: "image/png" },
+    ]);
+    assert.equal(text, "Antes\n[mídia 1]\nMeio\n[mídia 2]");
+  });
+
   it("omite URL de issue e descreve mídia sem baixar", () => {
     const view = presentTicket({
       id: TICKET_ID,
@@ -226,8 +237,8 @@ describe("chamados", () => {
     });
 
     const encoded = JSON.stringify(view);
-    assert.equal(view.description, "Olha isso\nhá mídia");
-    assert.equal(view.comments[0].text, "há mídia");
+    assert.equal(view.description, "Olha isso\n[mídia 1]");
+    assert.equal(view.comments[0].text, "[mídia 1]");
     assert.equal(view.media[0]?.url, "https://cdn.example/signed");
     assert.equal(view.media[0]?.mime, "image/png");
     assert.equal(view.comments[0].media[0]?.url, "https://cdn.example/video");

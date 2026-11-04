@@ -86,7 +86,7 @@ export function registerTools(server: McpServer, client: TicketClient): void {
     {
       title: "Detalhe do chamado",
       description:
-        "Detalhe de um chamado pelo uuid ou pelo protocolo (#CH-0001 ou CH-0001). Solicitante só vê o que abriu ou em que foi marcado. Agente vê qualquer um. Mídia vem em media com uma URL temporária, que vale 1 hora.",
+        "Detalhe de um chamado pelo uuid ou pelo protocolo (#CH-0001 ou CH-0001). Solicitante só vê o que abriu ou em que foi marcado. Agente vê qualquer um. No texto, mídia aparece como [mídia 1], [mídia 2] na ordem dos blocos; a lista media traz url, mime e fileName (URL temporária, vale 1 hora).",
       inputSchema: {
         ticket: z.string().min(1).describe("uuid do chamado ou protocolo"),
       },
