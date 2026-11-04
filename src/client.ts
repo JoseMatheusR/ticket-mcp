@@ -229,7 +229,14 @@ export type MyTickets = {
 
 export type ContentBlock =
   | { id?: string; type: "text"; content: string }
-  | { id?: string; type: string; url?: string; fileName?: string };
+  | {
+      id?: string;
+      type: string;
+      url?: string;
+      fileName?: string;
+      mime?: string;
+      durationSeconds?: number | null;
+    };
 
 export type TicketComment = {
   id: string;

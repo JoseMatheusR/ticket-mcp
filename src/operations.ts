@@ -115,6 +115,17 @@ export function textFromBlocks(blocks: ContentBlock[] | undefined): string {
     .join("\n");
 }
 
+export function mediaFromBlocks(blocks: ContentBlock[] | undefined) {
+  return (blocks ?? [])
+    .filter((block) => block.type !== "text" && "url" in block && block.url)
+    .map((block) => ({
+      type: block.type,
+      url: (block as { url: string }).url,
+      mime: (block as { mime?: string }).mime ?? null,
+      fileName: (block as { fileName?: string }).fileName ?? null,
+    }));
+}
+
 export function presentTicket(ticket: TicketDetail) {
   return {
     protocol: ticket.protocol,
@@ -129,6 +140,7 @@ export function presentTicket(ticket: TicketDetail) {
       name: person.name,
     })),
     description: textFromBlocks(ticket.blocks),
+    media: mediaFromBlocks(ticket.blocks),
     comments: (ticket.comments ?? []).map((comment) => ({
       author: comment.author.name,
       role: comment.author.role,
@@ -136,6 +148,7 @@ export function presentTicket(ticket: TicketDetail) {
       text: comment.blocks?.length
         ? textFromBlocks(comment.blocks)
         : comment.content,
+      media: mediaFromBlocks(comment.blocks),
     })),
     events: (ticket.events ?? []).map((event) => ({
       title: event.title,

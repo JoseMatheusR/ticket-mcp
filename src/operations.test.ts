@@ -203,7 +203,7 @@ describe("chamados", () => {
       relatedPeople: [{ id: AGENT_ID, name: "Ana" }],
       blocks: [
         { type: "text", content: "Olha isso" },
-        { type: "image", url: "https://cdn.example/signed" },
+        { type: "image", url: "https://cdn.example/signed", mime: "image/png" },
       ],
       comments: [
         {
@@ -228,7 +228,10 @@ describe("chamados", () => {
     const encoded = JSON.stringify(view);
     assert.equal(view.description, "Olha isso\nhá mídia");
     assert.equal(view.comments[0].text, "há mídia");
-    assert.doesNotMatch(encoded, /github\.com|cdn\.example|feat\/x/);
+    assert.equal(view.media[0]?.url, "https://cdn.example/signed");
+    assert.equal(view.media[0]?.mime, "image/png");
+    assert.equal(view.comments[0].media[0]?.url, "https://cdn.example/video");
+    assert.doesNotMatch(encoded, /github\.com|feat\/x/);
   });
 
   it("get_ticket usa o uuid resolvido", async () => {
